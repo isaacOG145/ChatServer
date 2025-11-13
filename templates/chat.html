@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Chat</title>
+  <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+  <style>
+    body { font-family: sans-serif; }
+    #chat { border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: scroll; }
+  </style>
+</head>
+<body>
+  <h3>Hola {{ username }} 👋</h3>
+  <div>
+    <label for="room">Sala:</label>
+    <select id="room">
+      {% for r in rooms %}
+        <option value="{{ r }}">{{ r }}</option>
+      {% endfor %}
+    </select>
+    <button id="joinBtn">Entrar a sala</button>
+  </div>
+  <hr>
+  <div id="chat"></div>
+  <input id="msg" placeholder="Escribe un mensaje...">
+  <button onclick="sendMessage()">Enviar</button>
+
+  <script>
+    const socket = io();
+    const username = "{{ username }}";
+    let currentRoom = "general";
+
+    document.getElementById('joinBtn').addEventListener('click', () => {
+      const newRoom = document.getElementById('room').value;
+      if (newRoom !== currentRoom) {
+        socket.emit('leave', { username, room: currentRoom });
+        socket.emit('join', { username, room: newRoom });
+        currentRoom = newRoom;
+        document.getElementById('chat').innerHTML = "";
+      }
+    });
+
+    socket.on('connect', () => {
+      socket.emit('join', { username, room: currentRoom });
+    });
+
+    socket.on('message', msg => {
+      const chat = document.getElementById('chat');
+      const p = document.createElement('p');
+      p.textContent = msg;
+      chat.appendChild(p);
+      chat.scrollTop = chat.scrollHeight;
+    });
+
+    function sendMessage() {
+      const msg = document.getElementById('msg').value;
+      if (msg.trim() !== "") {
+        socket.emit('message', { username, msg, room: currentRoom });
+        document.getElementById('msg').value = "";
+      }
+    }
+  </script>
+</body>
+</html>
