@@ -56,84 +56,83 @@
   </div>
 
   <script>
-    const socket = io();
-    const encoder = new TextEncoder();
-    const decoder = new TextDecoder();
+  const socket = io();
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
 
-    // ⚠️ Clave simétrica compartida temporal (debes usar la misma en Python)
-    const keyBytes = new Uint8Array([
-      1, 2, 3, 4, 5, 6, 7, 8,
-      9, 10, 11, 12, 13, 14, 15, 16,
-      17, 18, 19, 20, 21, 22, 23, 24,
-      25, 26, 27, 28, 29, 30, 31, 32
-    ]);
+  const keyBytes = new Uint8Array([
+    1, 2, 3, 4, 5, 6, 7, 8,
+    9, 10, 11, 12, 13, 14, 15, 16,
+    17, 18, 19, 20, 21, 22, 23, 24,
+    25, 26, 27, 28, 29, 30, 31, 32
+  ]);
 
-    let cryptoKey;
-    let username = "";
-    const room = "general";
+  let cryptoKey;
+  let username = "";
+  const room = "general";
 
-    async function initCrypto() {
-      cryptoKey = await crypto.subtle.importKey(
-        "raw",
-        keyBytes,
-        "AES-GCM",
-        false,
-        ["encrypt", "decrypt"]
-      );
-    }
+  async function initCrypto() {
+    cryptoKey = await crypto.subtle.importKey("raw", keyBytes, "AES-GCM", false, ["encrypt", "decrypt"]);
+  }
 
-    async function encryptMessage(message) {
-      const iv = crypto.getRandomValues(new Uint8Array(12)); // nonce de 96 bits
-      const ciphertext = await crypto.subtle.encrypt(
-        { name: "AES-GCM", iv },
-        cryptoKey,
-        encoder.encode(message)
-      );
+  // 🔐 Cifrado AES-GCM
+  async function encryptMessage(message) {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, cryptoKey, encoder.encode(message));
 
-      // Convertimos a base64
-      const b64 = arr => btoa(String.fromCharCode(...arr));
-      return {
-        ciphertext: b64(new Uint8Array(ciphertext)),
-        nonce: b64(iv)
-      };
-    }
+    const b64 = arr => btoa(String.fromCharCode(...arr));
+    return {
+      ciphertext: b64(new Uint8Array(ciphertext)),
+      nonce: b64(iv)
+    };
+  }
 
-    // ---- UI & eventos ----
-    document.getElementById("joinBtn").addEventListener("click", () => {
-      username = document.getElementById("username").value.trim();
-      if (!username) return alert("Por favor escribe tu nombre.");
-      document.getElementById("login").style.display = "none";
-      document.getElementById("chat-container").style.display = "block";
+  // 🔎 Calcular hash SHA-256 en Base64
+  async function sha256Base64(str) {
+    const data = encoder.encode(str);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashBase64 = btoa(String.fromCharCode(...hashArray));
+    return hashBase64;
+  }
 
-      socket.emit("join", { username, room });
+  document.getElementById("joinBtn").addEventListener("click", () => {
+    username = document.getElementById("username").value.trim();
+    if (!username) return alert("Por favor escribe tu nombre.");
+    document.getElementById("login").style.display = "none";
+    document.getElementById("chat-container").style.display = "block";
+    socket.emit("join", { username, room });
+  });
+
+  document.getElementById("sendBtn").addEventListener("click", async () => {
+    const input = document.getElementById("message");
+    const msg = input.value.trim();
+    if (!msg) return;
+
+    const { ciphertext, nonce } = await encryptMessage(msg);
+    const hash = await sha256Base64(ciphertext); // 👈 hash del texto cifrado
+
+    socket.emit("message", {
+      username,
+      msg: ciphertext,
+      nonce,
+      hash,   // 👈 agregamos hash
+      room
     });
 
-    document.getElementById("sendBtn").addEventListener("click", async () => {
-      const input = document.getElementById("message");
-      const msg = input.value.trim();
-      if (!msg) return;
+    input.value = "";
+  });
 
-      const { ciphertext, nonce } = await encryptMessage(msg);
+  socket.on("message", (data) => {
+    const chat = document.getElementById("chat");
+    const el = document.createElement("div");
+    el.textContent = data;
+    chat.appendChild(el);
+    chat.scrollTop = chat.scrollHeight;
+  });
 
-      socket.emit("message", {
-        username,
-        msg: ciphertext,
-        nonce,
-        room
-      });
+  window.addEventListener("load", initCrypto);
+</script>
 
-      input.value = "";
-    });
-
-    socket.on("message", (data) => {
-      const chat = document.getElementById("chat");
-      const el = document.createElement("div");
-      el.textContent = data;
-      chat.appendChild(el);
-      chat.scrollTop = chat.scrollHeight;
-    });
-
-    window.addEventListener("load", initCrypto);
-  </script>
 </body>
 </html>

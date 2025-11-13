@@ -1,9 +1,11 @@
 from flask import Flask, render_template, request, redirect, session, url_for
 from flask_socketio import SocketIO, join_room, leave_room, send
 from crypto_utils import decrypt_message, encrypt_message
+import hashlib
 import json
 import os
 import time
+import base64
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'clave-super-secreta'
@@ -57,28 +59,31 @@ def handle_message(data):
     username = data['username']
     ciphertext = data['msg']
     nonce = data['nonce']
+    hash_client = data['hash']
     room = data['room']
 
-    # Medir tiempo de descifrado
+    # ✅ Verificar integridad del mensaje
+    hash_server = hashlib.sha256(ciphertext.encode()).digest()
+    hash_server_b64 = base64.b64encode(hash_server).decode()
+
+    if hash_server_b64 != hash_client:
+        print(f"[ALERTA] Hash no coincide. Mensaje posiblemente alterado ({username})")
+        send(f"Mensaje corrupto detectado de {username}.", to=room)
+        return
+
+    # Medir tiempos
     start_dec = time.perf_counter()
     msg = decrypt_message(ciphertext, nonce)
     end_dec = time.perf_counter()
 
-    # Medir tiempo de cifrado (solo para análisis, no reenviaremos cifrado)
-    start_enc = time.perf_counter()
-    _ = encrypt_message(f"{username}: {msg}")  # simulamos re-cifrado
-    end_enc = time.perf_counter()
-
-    # Mostrar datos en consola
     print("------------------------------------------------")
     print(f"[{room}] {username}: {msg}")
-    print(f"🔒 Tipo de cifrado: AES-GCM (simétrico)")
-    print(f"⏱ Tiempo descifrado: {(end_dec - start_dec) * 1000:.4f} ms")
-    print(f"⏱ Tiempo cifrado: {(end_enc - start_enc) * 1000:.4f} ms")
+    print(f"Cifrado: AES-GCM + SHA-256 (integridad)")
+    print(f"Tiempo descifrado: {(end_dec - start_dec) * 1000:.4f} ms")
     print("------------------------------------------------")
 
-    # ✅ Reenviamos texto plano para mostrarlo en el chat
     send(f"{username}: {msg}", to=room)
+
 
 
 @socketio.on('leave')
