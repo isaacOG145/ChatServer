@@ -1,8 +1,10 @@
 from flask import Flask, render_template, request, redirect, session, url_for
 from flask_socketio import SocketIO, join_room, leave_room, send
-from crypto_utils import decrypt_message, encrypt_message
 import json
 import os
+import base64
+from crypto_utils import generate_keys, load_keys
+from Crypto.Cipher import PKCS1_v1_5 
 import time
 
 app = Flask(__name__)
@@ -10,6 +12,10 @@ app.config['SECRET_KEY'] = 'clave-super-secreta'
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 ROOMS_FILE = 'rooms.json'
+
+# ------------------ Cargar llaves RSA ------------------
+generate_keys()
+PRIVATE_KEY, PUBLIC_KEY = load_keys()
 
 # ------------------ Funciones de soporte ------------------
 
@@ -20,11 +26,7 @@ def load_rooms():
     with open(ROOMS_FILE, 'r') as f:
         return json.load(f)
 
-def save_rooms(rooms):
-    with open(ROOMS_FILE, 'w') as f:
-        json.dump(rooms, f, indent=4)
-
-# ------------------ Rutas principales ------------------
+# ------------------ Rutas ------------------
 
 @app.route('/', methods=['GET', 'POST'])
 def login():
@@ -40,8 +42,12 @@ def login():
 def chat():
     if 'username' not in session:
         return redirect(url_for('login'))
-    rooms = load_rooms()
-    return render_template('chat.html', username=session['username'], rooms=list(rooms.keys()))
+    return render_template('chat.html', username=session['username'])
+
+# Endpoint para entregar la clave pública al frontend
+@app.route('/public_key')
+def public_key():
+    return PUBLIC_KEY.export_key().decode()
 
 # ------------------ Eventos de Socket.IO ------------------
 
@@ -54,31 +60,51 @@ def handle_join(data):
 
 @socketio.on('message')
 def handle_message(data):
+    from datetime import datetime
+    import time
+
     username = data['username']
-    ciphertext = data['msg']
-    nonce = data['nonce']
+    encrypted_b64 = data['msg']
+    encryption_time = data.get('encTime', None)
     room = data['room']
 
-    # Medir tiempo de descifrado
-    start_dec = time.perf_counter()
-    msg = decrypt_message(ciphertext, nonce)
-    end_dec = time.perf_counter()
+    try:
+        encrypted_bytes = base64.b64decode(encrypted_b64)
+        cipher_rsa = PKCS1_v1_5.new(PRIVATE_KEY)
 
-    # Medir tiempo de cifrado (solo para análisis, no reenviaremos cifrado)
-    start_enc = time.perf_counter()
-    _ = encrypt_message(f"{username}: {msg}")  # simulamos re-cifrado
-    end_enc = time.perf_counter()
+        # medir tiempo de descifrado
+        start_dec = time.perf_counter()
 
-    # Mostrar datos en consola
-    print("------------------------------------------------")
-    print(f"[{room}] {username}: {msg}")
-    print(f"🔒 Tipo de cifrado: AES-GCM (simétrico)")
-    print(f"⏱ Tiempo descifrado: {(end_dec - start_dec) * 1000:.4f} ms")
-    print(f"⏱ Tiempo cifrado: {(end_enc - start_enc) * 1000:.4f} ms")
-    print("------------------------------------------------")
+        from Crypto import Random
+        sentinel = Random.new().read(15 + len(encrypted_bytes))
 
-    # ✅ Reenviamos texto plano para mostrarlo en el chat
+        msg_bytes = cipher_rsa.decrypt(encrypted_bytes, sentinel)
+        msg = msg_bytes.decode()
+
+        end_dec = time.perf_counter()
+        decryption_time = (end_dec - start_dec) * 1000  # ms
+
+    except Exception as e:
+        print("Error al descifrar mensaje:", e)
+        import traceback
+        traceback.print_exc()
+        return
+
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    print("\n──── Mensaje recibido ─────────────────────────────")
+    print(f"📅 Timestamp:     {timestamp}")
+    print(f"🧑 User:          {username}")
+    print(f"💬 Mensaje:       {msg}")
+    print(f"📌 Room:          {room}")
+    print(f"🔐 Algoritmo:     RSA + PKCS1_v1_5 (Asimétrico)")
+    if encryption_time is not None:
+        print(f"⚡ Tiempo cifrado (cliente):   {encryption_time:.4f} ms")
+    print(f"⚡ Tiempo descifrado (server): {decryption_time:.4f} ms")
+    print("───────────────────────────────────────────────────\n")
+
     send(f"{username}: {msg}", to=room)
+
 
 
 @socketio.on('leave')
@@ -88,7 +114,7 @@ def handle_leave(data):
     leave_room(room)
     send(f"{username} salió del chat.", to=room)
 
-# ------------------ Main ------------------
+# ------------------ Run ------------------
 
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=5000, debug=True)

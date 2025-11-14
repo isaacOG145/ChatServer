@@ -1,0 +1,7 @@
+# 🔐 Claves RSA - NO SUBIR AL REPOSITORIO
+keys/
+*.pem
+*.key
+*.pub
+
+__pycache__/

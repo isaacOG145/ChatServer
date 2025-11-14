@@ -1,25 +1,48 @@
-import base64
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+# crypto_utils.py
+from Crypto.PublicKey import RSA
+from Crypto.Cipher import PKCS1_OAEP
 import os
+import base64
 
-# Clave fija de 32 bytes (igual que en JS)
-SECRET_KEY = bytes([
-    1, 2, 3, 4, 5, 6, 7, 8,
-    9, 10, 11, 12, 13, 14, 15, 16,
-    17, 18, 19, 20, 21, 22, 23, 24,
-    25, 26, 27, 28, 29, 30, 31, 32
-])
+def generate_keys():
+    if not os.path.exists("keys"):
+        os.makedirs("keys")
 
-def encrypt_message(message: str) -> bytes:
-    aesgcm = AESGCM(SECRET_KEY)
-    nonce = os.urandom(12)
-    ciphertext = aesgcm.encrypt(nonce, message.encode(), None)
-    # Empaquetamos ambos en Base64 concatenado
-    return base64.b64encode(ciphertext)
+    private_path = "keys/private.pem"
+    public_path = "keys/public.pem"
 
-def decrypt_message(ciphertext_b64: str, nonce_b64: str) -> str:
-    aesgcm = AESGCM(SECRET_KEY)
-    ciphertext = base64.b64decode(ciphertext_b64)
-    nonce = base64.b64decode(nonce_b64)
-    plaintext = aesgcm.decrypt(nonce, ciphertext, None)
-    return plaintext.decode('utf-8')
+    if not os.path.exists(private_path) or not os.path.exists(public_path):
+        key = RSA.generate(2048)
+        with open(private_path, "wb") as f:
+            f.write(key.export_key())
+        with open(public_path, "wb") as f:
+            f.write(key.publickey().export_key())
+        print("Llaves RSA generadas correctamente.")
+    else:
+        print("Llaves ya existentes, no se regeneran.")
+
+def load_keys():
+    try:
+        private_key = RSA.import_key(open("keys/private.pem", "rb").read())
+        public_key = RSA.import_key(open("keys/public.pem", "rb").read())
+        return private_key, public_key
+    except FileNotFoundError as e:
+        print(f"Error: No se encontraron las claves - {e}")
+        return None, None
+    except Exception as e:
+        print(f"Error cargando claves: {e}")
+        return None, None
+
+def encrypt_message(public_key, message: str) -> str:
+    cipher = PKCS1_OAEP.new(public_key)
+    encrypted_bytes = cipher.encrypt(message.encode('utf-8'))
+    return base64.b64encode(encrypted_bytes).decode()
+
+def decrypt_message(private_key, encrypted_b64: str) -> str:
+    try:
+        encrypted_bytes = base64.b64decode(encrypted_b64)
+        cipher = PKCS1_OAEP.new(private_key)
+        return cipher.decrypt(encrypted_bytes).decode('utf-8')
+    except Exception as e:
+        print("Error desencriptando:", e)
+        return None

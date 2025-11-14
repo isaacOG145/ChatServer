@@ -2,8 +2,10 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>Chat Seguro - Simétrico</title>
+  <title>Chat RSA Asimétrico</title>
   <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsencrypt/3.0.0/jsencrypt.min.js"></script>
+
   <style>
     body {
       font-family: sans-serif;
@@ -26,7 +28,7 @@
       border-radius: 5px;
       border: none;
     }
-    #sendBtn {
+    button {
       padding: 6px 10px;
       border: none;
       border-radius: 5px;
@@ -34,106 +36,79 @@
       color: white;
       cursor: pointer;
     }
-    #login {
-      margin-bottom: 15px;
-    }
   </style>
 </head>
 <body>
-  <h2>🔐 Chat con Cifrado Simétrico (AES-GCM)</h2>
 
-  <div id="login">
-    <label>Tu nombre:</label>
-    <input type="text" id="username" />
-    <button id="joinBtn">Entrar al chat</button>
-  </div>
+<h2>🔐 Chat con Cifrado Asimétrico (RSA)</h2>
 
-  <div id="chat-container" style="display:none;">
-    <div id="chat"></div>
+<div id="login">
+  <label>Tu nombre:</label>
+  <input type="text" id="username">
+  <button id="joinBtn">Entrar al chat</button>
+</div>
 
-    <input id="message" placeholder="Escribe tu mensaje..." autocomplete="off" />
-    <button id="sendBtn">Enviar</button>
-  </div>
+<div id="chat-container" style="display:none;">
+  <div id="chat"></div>
 
-  <script>
-    const socket = io();
-    const encoder = new TextEncoder();
-    const decoder = new TextDecoder();
+  <input id="message" placeholder="Escribe tu mensaje..." autocomplete="off">
+  <button id="sendBtn">Enviar</button>
+</div>
 
-    // ⚠️ Clave simétrica compartida temporal (debes usar la misma en Python)
-    const keyBytes = new Uint8Array([
-      1, 2, 3, 4, 5, 6, 7, 8,
-      9, 10, 11, 12, 13, 14, 15, 16,
-      17, 18, 19, 20, 21, 22, 23, 24,
-      25, 26, 27, 28, 29, 30, 31, 32
-    ]);
+<script>
+  const socket = io();
+  const room = "general";
+  let username = "";
+  let publicKey = "";
 
-    let cryptoKey;
-    let username = "";
-    const room = "general";
+  // Obtener la clave pública del servidor
+  async function loadPublicKey() {
+    const res = await fetch("/public_key");
+    publicKey = await res.text();
+  }
 
-    async function initCrypto() {
-      cryptoKey = await crypto.subtle.importKey(
-        "raw",
-        keyBytes,
-        "AES-GCM",
-        false,
-        ["encrypt", "decrypt"]
-      );
+  document.getElementById("joinBtn").addEventListener("click", () => {
+    username = document.getElementById("username").value.trim();
+    if (!username) return alert("Ingresa tu nombre.");
+
+    document.getElementById("login").style.display = "none";
+    document.getElementById("chat-container").style.display = "block";
+
+    socket.emit("join", { username, room });
+  });
+
+  document.getElementById("sendBtn").addEventListener("click", async () => {
+    const msg = document.getElementById("message").value.trim();
+    if (!msg) return;
+
+    const encryptor = new JSEncrypt();
+    encryptor.setPublicKey(publicKey);
+
+    const encrypted = encryptor.encrypt(msg);
+
+    if (!encrypted) {
+      alert("Error cifrando mensaje.");
+      return;
     }
 
-    async function encryptMessage(message) {
-      const iv = crypto.getRandomValues(new Uint8Array(12)); // nonce de 96 bits
-      const ciphertext = await crypto.subtle.encrypt(
-        { name: "AES-GCM", iv },
-        cryptoKey,
-        encoder.encode(message)
-      );
-
-      // Convertimos a base64
-      const b64 = arr => btoa(String.fromCharCode(...arr));
-      return {
-        ciphertext: b64(new Uint8Array(ciphertext)),
-        nonce: b64(iv)
-      };
-    }
-
-    // ---- UI & eventos ----
-    document.getElementById("joinBtn").addEventListener("click", () => {
-      username = document.getElementById("username").value.trim();
-      if (!username) return alert("Por favor escribe tu nombre.");
-      document.getElementById("login").style.display = "none";
-      document.getElementById("chat-container").style.display = "block";
-
-      socket.emit("join", { username, room });
+    socket.emit("message", {
+      username,
+      room,
+      msg: encrypted
     });
 
-    document.getElementById("sendBtn").addEventListener("click", async () => {
-      const input = document.getElementById("message");
-      const msg = input.value.trim();
-      if (!msg) return;
+    document.getElementById("message").value = "";
+  });
 
-      const { ciphertext, nonce } = await encryptMessage(msg);
+  socket.on("message", (data) => {
+    const chat = document.getElementById("chat");
+    const el = document.createElement("div");
+    el.textContent = data;
+    chat.appendChild(el);
+    chat.scrollTop = chat.scrollHeight;
+  });
 
-      socket.emit("message", {
-        username,
-        msg: ciphertext,
-        nonce,
-        room
-      });
-
-      input.value = "";
-    });
-
-    socket.on("message", (data) => {
-      const chat = document.getElementById("chat");
-      const el = document.createElement("div");
-      el.textContent = data;
-      chat.appendChild(el);
-      chat.scrollTop = chat.scrollHeight;
-    });
-
-    window.addEventListener("load", initCrypto);
-  </script>
+  window.onload = loadPublicKey;
+</script>
 </body>
 </html>
