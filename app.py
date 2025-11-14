@@ -1,8 +1,10 @@
+#app.py
 from flask import Flask, render_template, request, redirect, session, url_for
 from flask_socketio import SocketIO, join_room, leave_room, send
 import json
 import os
 import base64
+import hashlib
 from crypto_utils import generate_keys, load_keys
 from Crypto.Cipher import PKCS1_v1_5 
 import time
@@ -61,28 +63,37 @@ def handle_join(data):
 @socketio.on('message')
 def handle_message(data):
     from datetime import datetime
-    import time
+    import time, hashlib
 
     username = data['username']
     encrypted_b64 = data['msg']
-    encryption_time = data.get('encTime', None)
     room = data['room']
 
     try:
         encrypted_bytes = base64.b64decode(encrypted_b64)
         cipher_rsa = PKCS1_v1_5.new(PRIVATE_KEY)
 
-        # medir tiempo de descifrado
         start_dec = time.perf_counter()
 
         from Crypto import Random
         sentinel = Random.new().read(15 + len(encrypted_bytes))
-
-        msg_bytes = cipher_rsa.decrypt(encrypted_bytes, sentinel)
-        msg = msg_bytes.decode()
+        decrypted_payload = cipher_rsa.decrypt(encrypted_bytes, sentinel)
+        payload_str = decrypted_payload.decode()
 
         end_dec = time.perf_counter()
-        decryption_time = (end_dec - start_dec) * 1000  # ms
+        decryption_time = (end_dec - start_dec) * 1000
+
+        # Separar mensaje y hash
+        if "|HASH|" not in payload_str:
+            print("Error: Formato de mensaje inválido")
+            return
+        
+        msg, received_hash = payload_str.split("|HASH|", 1)
+
+        # Calcular hash del mensaje descifrado
+        calculated_hash = hashlib.sha256(msg.encode()).hexdigest()
+
+        integrity_ok = (calculated_hash == received_hash)
 
     except Exception as e:
         print("Error al descifrar mensaje:", e)
@@ -93,18 +104,19 @@ def handle_message(data):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     print("\n──── Mensaje recibido ─────────────────────────────")
-    print(f"📅 Timestamp:     {timestamp}")
-    print(f"🧑 User:          {username}")
-    print(f"💬 Mensaje:       {msg}")
-    print(f"📌 Room:          {room}")
-    print(f"🔐 Algoritmo:     RSA + PKCS1_v1_5 (Asimétrico)")
-    if encryption_time is not None:
-        print(f"⚡ Tiempo cifrado (cliente):   {encryption_time:.4f} ms")
-    print(f"⚡ Tiempo descifrado (server): {decryption_time:.4f} ms")
+    print(f"Timestamp:     {timestamp}")
+    print(f"User:          {username}")
+    print(f"Mensaje:       {msg}")
+    print(f"Room:          {room}")
+    print(f"Algoritmo:     RSA + PKCS1_v1_5 + sha256 (Asimétrico)")
+    print(f"Integridad:     {'OK ✔' if integrity_ok else 'FALLÓ ✘'}")
+    print(f"Tiempo descifrado (server): {decryption_time:.4f} ms")
     print("───────────────────────────────────────────────────\n")
 
-    send(f"{username}: {msg}", to=room)
-
+    if integrity_ok:
+        send(f"{username}: {msg}", to=room)
+    else:
+        send(f"Mensaje corrupto o manipulado de {username}", to=room)
 
 
 @socketio.on('leave')

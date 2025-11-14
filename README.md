@@ -19,3 +19,14 @@ b053008b8db973f9f4b36976de4be79e  ./templates/index.html
 be7be3619fac94f94d7592b6eeadce05  ./templates/chat.html
 35ce96919a8b71ecd2e9112d1f627eb4  ./templates/login.html
 
+chat version 1.1.2 
+
+chat asimetrico con hash + sha256
+
+2687c8d90a9ed36f17994d9dd01aa20b  app.py
+0d3585b9a727ace36b7341d5fee38bfb  crypto_utils.py
+1c4e217a31856204db6e167a318543b0  requirements.txt
+b053008b8db973f9f4b36976de4be79e  ./templates/index.html
+35ce96919a8b71ecd2e9112d1f627eb4  ./templates/login.html
+5ffb067c1bf4cbb7d4954377386f7b6b  ./templates/chat.html
+
