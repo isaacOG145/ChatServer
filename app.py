@@ -6,12 +6,10 @@ import os
 import base64
 import hashlib
 import time
-from datetime import datetime
 from crypto_utils import generate_keys, load_keys
 from Crypto.Cipher import PKCS1_v1_5
 from Crypto import Random
 
-# ------------------ Cargar .env ------------------
 load_dotenv()
 
 HOST_URL = os.getenv("HOST_URL", "0.0.0.0")
@@ -19,19 +17,16 @@ HOST_PORT = int(os.getenv("HOST_PORT", 5000))
 SECRET_KEY = os.getenv("SECRET_KEY", "default_secret")
 CORS_ALLOWED = os.getenv("CORS_ALLOWED", "*")
 
-# ------------------ Flask ------------------
 app = Flask(__name__)
 app.config['SECRET_KEY'] = SECRET_KEY
 socketio = SocketIO(app, cors_allowed_origins=CORS_ALLOWED)
 
 ROOMS_FILE = "rooms.json"
+USERS_FILE = "users.json"
 
-# ------------------ Cargar llaves ------------------
 generate_keys()
 PRIVATE_KEY, PUBLIC_KEY = load_keys()
 
-
-# ------------------ Soporte ------------------
 def load_rooms():
     if not os.path.exists(ROOMS_FILE):
         with open(ROOMS_FILE, 'w') as f:
@@ -39,25 +34,91 @@ def load_rooms():
     with open(ROOMS_FILE, 'r') as f:
         return json.load(f)
 
+def load_users():
+    """Carga usuarios del archivo JSON"""
+    if not os.path.exists(USERS_FILE):
+        with open(USERS_FILE, 'w') as f:
+            json.dump({}, f)
+        return {}
+    
+    try:
+        with open(USERS_FILE, 'r') as f:
+            return json.load(f)
+    except json.JSONDecodeError:
+        # Si el archivo está corrupto, crear uno nuevo
+        with open(USERS_FILE, 'w') as f:
+            json.dump({}, f)
+        return {}
 
-# ------------------ Rutas ------------------
+def save_users(users):
+    """Guarda usuarios en el archivo JSON"""
+    with open(USERS_FILE, 'w') as f:
+        json.dump(users, f, indent=2)
+
+def hash_password(password):
+    """Hash simple de contraseña con SHA256"""
+    return hashlib.sha256(password.encode()).hexdigest()
+
+def verify_password(stored_hash, password):
+    """Verifica si la contraseña coincide con el hash"""
+    return stored_hash == hash_password(password)
+
 @app.route('/', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form.get('username')
-        if username.strip() == "":
-            return render_template('login.html', error="Debes ingresar un nombre.")
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '').strip()
+        
+        # Validación básica
+        if not username or not password:
+            return render_template('login.html', error="Usuario y contraseña son obligatorios.")
+        
+        if len(username) < 3:
+            return render_template('login.html', error="El usuario debe tener al menos 3 caracteres.")
+        
+        if len(password) < 4:
+            return render_template('login.html', error="La contraseña debe tener al menos 4 caracteres.")
+        
+        users = load_users()
+        
+        # Registro automático si el usuario no existe
+        if username not in users:
+            print(f"Registrando nuevo usuario: {username}")
+            users[username] = {
+                'password_hash': hash_password(password),
+                'created_at': time.time()
+            }
+            save_users(users)
+            session['username'] = username
+            print(f"Usuario {username} registrado y sesión creada")
+            return redirect(url_for('chat'))
+        
+        # Login si el usuario ya existe
+        print(f"Usuario {username} ya existe, verificando contraseña...")
+        if not verify_password(users[username]['password_hash'], password):
+            return render_template('login.html', error="Contraseña incorrecta.")
+        
         session['username'] = username
+        print(f"Login exitoso para {username}")
         return redirect(url_for('chat'))
 
+    # GET request - mostrar formulario
     return render_template('login.html')
 
+@app.route('/logout')
+def logout():
+    username = session.get('username', 'Usuario')
+    session.pop('username', None)
+    print(f"{username} cerró sesión")
+    return redirect(url_for('login'))
 
 @app.route('/chat')
 def chat():
     if 'username' not in session:
+        print("Acceso denegado a /chat - no hay sesión")
         return redirect(url_for('login'))
 
+    print(f"Usuario {session['username']} accedió al chat")
     return render_template(
         'chat.html',
         username=session['username'],
@@ -69,15 +130,13 @@ def chat():
 def public_key():
     return PUBLIC_KEY.export_key().decode()
 
-
-# ------------------ Eventos Socket.IO ------------------
 @socketio.on('join')
 def handle_join(data):
     username = data['username']
     room = data['room']
     join_room(room)
+    print(f"{username} se unió a {room}")
     send(f"{username} se unió al chat.", to=room)
-
 
 @socketio.on('message')
 def handle_message(data):
@@ -98,14 +157,12 @@ def handle_message(data):
         end_dec = time.perf_counter()
         decryption_time = (end_dec - start_dec) * 1000
 
-        # Separar mensaje y hash
         if "|HASH|" not in payload_str:
             print("Error: mensaje inválido")
             return
 
         msg, received_hash = payload_str.split("|HASH|", 1)
 
-        # Validar integridad
         calculated_hash = hashlib.sha256(msg.encode()).hexdigest()
         integrity_ok = (calculated_hash == received_hash)
 
@@ -113,28 +170,25 @@ def handle_message(data):
         print("Error al descifrar mensaje:", e)
         return
 
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    print("\n──── Mensaje recibido ─────────────")
-    print(f"Hora: {timestamp}")
-    print(f"Usuario: {username}")
-    print(f"Mensaje: {msg}")
-    print(f"Integridad: {'OK ✔' if integrity_ok else 'FALLÓ ✘'}")
-    print(f"Tiempo descifrado: {decryption_time:.4f} ms")
-    print("──────────────────────────────────\n")
-
     if integrity_ok:
+        print(f"[{room}] {username}: {msg}")
         send(f"{username}: {msg}", to=room)
     else:
-        send(f"⚠ Mensaje corrupto de {username}", to=room)
-
+        print(f"Mensaje corrupto de {username}")
+        send(f"Mensaje corrupto de {username}", to=room)
 
 @socketio.on('leave')
 def handle_leave(data):
-    leave_room(data["room"])
-    send(f"{data['username']} salió del chat.", to=data["room"])
+    username = data["username"]
+    room = data["room"]
+    leave_room(room)
+    print(f"{username} salió de {room}")
+    send(f"{username} salió del chat.", to=room)
 
-
-# ------------------ Run ------------------
 if __name__ == '__main__':
+    print("=" * 50)
+    print("Iniciando servidor de chat seguro...")
+    print(f"Host: {HOST_URL}:{HOST_PORT}")
+    print(f"Archivos de usuarios: {USERS_FILE}")
+    print("=" * 50)
     socketio.run(app, host=HOST_URL, port=HOST_PORT, debug=True)
