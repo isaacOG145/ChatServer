@@ -1,19 +1,24 @@
 # crypto_utils.py
-import os
-import base64
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
+import os
+import base64
 from dotenv import load_dotenv
+
 load_dotenv()
 
 PRIVATE_KEY_PATH = os.getenv("PRIVATE_KEY", "keys/private.pem")
 PUBLIC_KEY_PATH = os.getenv("PUBLIC_KEY", "keys/public.pem")
 
+
 def generate_keys():
     key_dir = os.path.dirname(PRIVATE_KEY_PATH)
-    if not os.path.exists(key_dir):
+
+    # Crear carpeta si no existe
+    if key_dir and not os.path.exists(key_dir):
         os.makedirs(key_dir)
 
+    # Generar llaves si no existen
     if not os.path.exists(PRIVATE_KEY_PATH) or not os.path.exists(PUBLIC_KEY_PATH):
         key = RSA.generate(2048)
 
@@ -25,25 +30,29 @@ def generate_keys():
 
         print("Llaves RSA generadas correctamente.")
     else:
-        print("Llaves existentes, no se regeneran.")
+        print("Llaves ya existentes, no se regeneran.")
 
 
 def load_keys():
     try:
-        private_key = RSA.import_key(open("keys/private.pem", "rb").read())
-        public_key = RSA.import_key(open("keys/public.pem", "rb").read())
+        private_key = RSA.import_key(open(PRIVATE_KEY_PATH, "rb").read())
+        public_key = RSA.import_key(open(PUBLIC_KEY_PATH, "rb").read())
         return private_key, public_key
+
     except FileNotFoundError as e:
         print(f"Error: No se encontraron las claves - {e}")
         return None, None
+
     except Exception as e:
         print(f"Error cargando claves: {e}")
         return None, None
+
 
 def encrypt_message(public_key, message: str) -> str:
     cipher = PKCS1_OAEP.new(public_key)
     encrypted_bytes = cipher.encrypt(message.encode('utf-8'))
     return base64.b64encode(encrypted_bytes).decode()
+
 
 def decrypt_message(private_key, encrypted_b64: str) -> str:
     try:

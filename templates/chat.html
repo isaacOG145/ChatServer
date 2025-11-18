@@ -1,10 +1,13 @@
-<!--template/chat.html-->
 <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
   <title>Chat RSA Asimétrico</title>
+
+  <!-- Socket.IO -->
   <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+
+  <!-- JSEncrypt -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jsencrypt/3.0.0/jsencrypt.min.js"></script>
 
   <style>
@@ -41,11 +44,11 @@
 </head>
 <body>
 
-<h2>Chat con Cifrado Asimétrico (RSA + sha256)</h2>
+<h2>Chat con Cifrado Asimétrico (RSA + SHA256)</h2>
 
 <div id="login">
   <label>Tu nombre:</label>
-  <input type="text" id="username">
+  <input type="text" id="username" value="{{ username }}">
   <button id="joinBtn">Entrar al chat</button>
 </div>
 
@@ -57,12 +60,23 @@
 </div>
 
 <script>
-  const socket = io();
+  // ------------------------
+  // CONFIG DINÁMICA (BACKEND)
+  // ------------------------
+  const SOCKET_HOST = "{{ socket_host }}";
+  const SOCKET_PORT = "{{ socket_port }}";
+  const SOCKET_URL = SOCKET_HOST + ":" + SOCKET_PORT;
+
+  console.log("Conectando a:", SOCKET_URL);
+
+  // Crear conexión dinámica
+  const socket = io(SOCKET_URL);
+
   const room = "general";
   let username = "";
   let publicKey = "";
 
-  // Obtener la clave pública del servidor
+  // Obtener la clave pública desde backend dinámico
   async function loadPublicKey() {
     const res = await fetch("/public_key");
     publicKey = await res.text();
@@ -90,20 +104,17 @@
     const msg = document.getElementById("message").value.trim();
     if (!msg) return;
 
-    // Calcular hash del mensaje original
     const hash = await sha256(msg);
-    
-    // Concatenar mensaje + separador + hash
+
     const payload = msg + "|HASH|" + hash;
 
     const encryptor = new JSEncrypt();
     encryptor.setPublicKey(publicKey);
 
-    // Cifrar todo junto
     const encrypted = encryptor.encrypt(payload);
 
     if (!encrypted) {
-      alert("Error cifrando mensaje.");
+      alert("Error cifrando el mensaje.");
       return;
     }
 
@@ -116,8 +127,6 @@
     document.getElementById("message").value = "";
   });
 
-
-
   socket.on("message", (data) => {
     const chat = document.getElementById("chat");
     const el = document.createElement("div");
@@ -128,5 +137,6 @@
 
   window.onload = loadPublicKey;
 </script>
+
 </body>
 </html>
