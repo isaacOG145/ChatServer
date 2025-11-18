@@ -11,6 +11,7 @@ Jinja2==3.1.6
 MarkupSafe==3.0.3
 pycparser==2.23
 pycryptodome==3.23.0
+python-dotenv==1.2.1
 python-engineio==4.12.3
 python-socketio==5.14.3
 simple-websocket==1.1.0

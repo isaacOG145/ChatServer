@@ -4,13 +4,21 @@ from flask_socketio import SocketIO, join_room, leave_room, send
 import json
 import os
 import base64
-import hashlib
 from crypto_utils import generate_keys, load_keys
 from Crypto.Cipher import PKCS1_v1_5 
-import time
+from dotenv import load_dotenv
+load_dotenv()
+
+HOST_URL = os.getenv("HOST_URL")
+HOST_PORT = int(os.getenv("HOST_PORT"))
+SECRET_KEY = os.getenv("SECRET_KEY")
+CORS_ALLOWED = os.getenv("CORS_ALLOWED")
+PRIVATE_KEY_PATH = os.getenv("PRIVATE_KEY")
+PUBLIC_KEY_PATH = os.getenv("PUBLIC_KEY")
+
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'clave-super-secreta'
+app.config['SECRET_KEY'] = SECRET_KEY
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 ROOMS_FILE = 'rooms.json'
@@ -129,4 +137,4 @@ def handle_leave(data):
 # ------------------ Run ------------------
 
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True)
+    socketio.run(app, host=HOST_URL, port=HOST_PORT, debug=True)

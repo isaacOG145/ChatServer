@@ -1,25 +1,32 @@
 # crypto_utils.py
-from Crypto.PublicKey import RSA
-from Crypto.Cipher import PKCS1_OAEP
 import os
 import base64
+from Crypto.PublicKey import RSA
+from Crypto.Cipher import PKCS1_OAEP
+from dotenv import load_dotenv
+load_dotenv()
+
+PRIVATE_KEY_PATH = os.getenv("PRIVATE_KEY", "keys/private.pem")
+PUBLIC_KEY_PATH = os.getenv("PUBLIC_KEY", "keys/public.pem")
 
 def generate_keys():
-    if not os.path.exists("keys"):
-        os.makedirs("keys")
+    key_dir = os.path.dirname(PRIVATE_KEY_PATH)
+    if not os.path.exists(key_dir):
+        os.makedirs(key_dir)
 
-    private_path = "keys/private.pem"
-    public_path = "keys/public.pem"
-
-    if not os.path.exists(private_path) or not os.path.exists(public_path):
+    if not os.path.exists(PRIVATE_KEY_PATH) or not os.path.exists(PUBLIC_KEY_PATH):
         key = RSA.generate(2048)
-        with open(private_path, "wb") as f:
+
+        with open(PRIVATE_KEY_PATH, "wb") as f:
             f.write(key.export_key())
-        with open(public_path, "wb") as f:
+
+        with open(PUBLIC_KEY_PATH, "wb") as f:
             f.write(key.publickey().export_key())
+
         print("Llaves RSA generadas correctamente.")
     else:
-        print("Llaves ya existentes, no se regeneran.")
+        print("Llaves existentes, no se regeneran.")
+
 
 def load_keys():
     try:
