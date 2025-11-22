@@ -17,7 +17,11 @@ HOST_PORT = int(os.getenv("HOST_PORT", 5000))
 SECRET_KEY = os.getenv("SECRET_KEY", "default_secret")
 CORS_ALLOWED = os.getenv("CORS_ALLOWED", "*")
 
-app = Flask(__name__)
+app = Flask(__name__, 
+    static_folder='static',     
+    static_url_path='/static'   
+)
+
 app.config['SECRET_KEY'] = SECRET_KEY
 socketio = SocketIO(app, cors_allowed_origins=CORS_ALLOWED)
 
@@ -64,46 +68,19 @@ def verify_password(stored_hash, password):
     return stored_hash == hash_password(password)
 
 @app.route('/', methods=['GET', 'POST'])
-def login():
+def oauth_login():
+    """Nueva página principal - Login con OAuth"""
     if request.method == 'POST':
-        username = request.form.get('username', '').strip()
-        password = request.form.get('password', '').strip()
+        # Tu lógica de autenticación OAuth aquí
+        code = request.form.get('code')
+        # ... procesar OAuth ...
         
-        # Validación básica
-        if not username or not password:
-            return render_template('login.html', error="Usuario y contraseña son obligatorios.")
-        
-        if len(username) < 3:
-            return render_template('login.html', error="El usuario debe tener al menos 3 caracteres.")
-        
-        if len(password) < 4:
-            return render_template('login.html', error="La contraseña debe tener al menos 4 caracteres.")
-        
-        users = load_users()
-        
-        # Registro automático si el usuario no existe
-        if username not in users:
-            print(f"Registrando nuevo usuario: {username}")
-            users[username] = {
-                'password_hash': hash_password(password),
-                'created_at': time.time()
-            }
-            save_users(users)
-            session['username'] = username
-            print(f"Usuario {username} registrado y sesión creada")
-            return redirect(url_for('chat'))
-        
-        # Login si el usuario ya existe
-        print(f"Usuario {username} ya existe, verificando contraseña...")
-        if not verify_password(users[username]['password_hash'], password):
-            return render_template('login.html', error="Contraseña incorrecta.")
-        
-        session['username'] = username
-        print(f"Login exitoso para {username}")
+        # Si la autenticación es exitosa
+        session['username'] = "usuario_oauth"
         return redirect(url_for('chat'))
-
-    # GET request - mostrar formulario
-    return render_template('login.html')
+    
+    # GET request - mostrar formulario OAuth
+    return render_template('oauthLogin.html')
 
 @app.route('/logout')
 def logout():
