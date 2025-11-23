@@ -1,10 +1,23 @@
 {
   "isaac": {
     "password_hash": "b221d9dbb083a7f33428d7c2a3c3198ae925614d70210e28716ccaa7cd4ddb79",
-    "created_at": 1763500286.1267846
+    "created_at": 1763840087.0945575,
+    "auth_method": "traditional"
   },
-  "lalo": {
-    "password_hash": "b221d9dbb083a7f33428d7c2a3c3198ae925614d70210e28716ccaa7cd4ddb79",
-    "created_at": 1763500310.172923
+  "20233tn145": {
+    "google_id": "108717731780854925045",
+    "email": "20233tn145@utez.edu.mx",
+    "name": "isaac ocampo giles",
+    "picture": "https://lh3.googleusercontent.com/a/ACg8ocKJpo1cHmHgXQAgpJyhcCplT_acPR8tcmaJAtlk5VvY0Ao_ZpEG=s96-c",
+    "created_at": 1763842171.016118,
+    "auth_method": "google"
+  },
+  "nora.ocampo.giles": {
+    "google_id": "111922767451483066079",
+    "email": "nora.ocampo.giles@gmail.com",
+    "name": "Sara",
+    "picture": "https://lh3.googleusercontent.com/a/ACg8ocKgx8D31nCnGhvp_ovG3tR1eHMoNRYztwkPh_kIZd8_GRUTcHrSuw=s96-c",
+    "created_at": 1763842650.6727574,
+    "auth_method": "google"
   }
 }
