@@ -9,7 +9,7 @@ import hashlib
 import time
 from crypto_utils import (
     generate_keys,load_keys, sign_data, generate_digital_signature_info, verify_signature,
-    create_signed_document, extract_from_signed_document  # ← Solo estas quedan
+    create_signed_document, extract_from_signed_document 
 )
 from Crypto.Cipher import PKCS1_v1_5
 from Crypto import Random
@@ -36,7 +36,7 @@ google = oauth.register(
     authorize_url='https://accounts.google.com/o/oauth2/auth',
     access_token_url='https://oauth2.googleapis.com/token',
     userinfo_endpoint='https://www.googleapis.com/oauth2/v3/userinfo',
-    jwks_uri='https://www.googleapis.com/oauth2/v3/certs',  # ← Agregar jwks_uri
+    jwks_uri='https://www.googleapis.com/oauth2/v3/certs', 
     client_kwargs={
         'scope': 'openid email profile',
         'prompt': 'select_account',
@@ -133,7 +133,7 @@ def login_user(username, auth_method, email=None):
 
 @app.route('/', methods=['GET', 'POST'])
 def login():
-    """Página principal - Maneja ambos tipos de login"""
+    
     if request.method == 'POST':
        
         if 'google_login' in request.form:
