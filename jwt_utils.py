@@ -11,9 +11,7 @@ class JWTManager:
         self.algorithm = "HS256"
     
     def generate_token(self, username, auth_method):
-        """
-        Genera un token JWT
-        """
+       
         payload = {
             'username': username,
             'auth_method': auth_method,
@@ -25,9 +23,7 @@ class JWTManager:
         return token
     
     def verify_token(self, token):
-        """
-        Verifica y decodifica un token JWT
-        """
+    
         try:
             payload = jwt.decode(
                 token, 

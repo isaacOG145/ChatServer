@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/output.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <title>Firmar archivos digitalmente</title>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <header class="bg-gradient-to-r from-blue-600 to-purple-700 text-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-4">
+                <h1 class="text-xl font-bold">Firmar archivos digitalmente</h1>
+            </div>
+            <div class="flex items-center space-x-4">
+                <span class="font-medium">{{ username }}</span>
+                <a href="{{ url_for('room') }}" class="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg transition-colors">
+                    <i class="fas fa-arrow-left mr-2"></i>Volver al Chat
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto px-4 py-8">
+         
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">
+                <i class="fas fa-pen-fancy text-blue-600 mr-2"></i>Firmar Documento
+            </h2>
+            
+            <div class="space-y-4">
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-key mr-2"></i>Clave Privada (PEM)
+                    </label>
+                    <textarea 
+                        id="privateKeyInput"
+                        placeholder="Pega tu clave privada RSA aquí..."
+                        rows="6"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                    ></textarea>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-file mr-2"></i>Documento a Firmar
+                    </label>
+                    <input type="file" id="fileToSign" class="hidden" />
+                    <div class="flex items-center space-x-4">
+                        <button onclick="document.getElementById('fileToSign').click()" 
+                                class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors">
+                            <i class="fas fa-file-upload mr-2"></i>Seleccionar Archivo
+                        </button>
+                        <span id="selectedFile" class="text-gray-600 text-sm">Ningún archivo seleccionado</span>
+                    </div>
+                </div>
+                
+                <button onclick="signDocument()" 
+                        class="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-semibold transition-colors">
+                    <i class="fas fa-signature mr-2"></i>Generar Firma
+                </button>
+            </div>
+            
+            <div id="signResult" class="hidden mt-6">
+                <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <h4 class="font-semibold text-green-800 mb-3">
+                        <i class="fas fa-check-circle mr-2"></i>FIRMA GENERADA
+                    </h4>
+                    
+                    <div class="mb-3">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Firma Digital:</label>
+                        <div class="flex space-x-2">
+                            <input type="text" id="signatureOutput" readonly 
+                                   class="flex-1 border border-gray-300 rounded px-3 py-2 text-sm bg-gray-50 font-mono">
+                            <button onclick="copyToClipboard('signatureOutput')" 
+                                    class="bg-gray-600 hover:bg-gray-700 text-white px-3 py-2 rounded text-sm">
+                                <i class="fas fa-copy mr-1"></i>Copiar
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <p class="text-sm text-gray-600">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        Comparte esta firma junto con el documento original para verificación.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">
+                <i class="fas fa-check-circle text-green-600 mr-2"></i>Verificar Firma
+            </h2>
+            
+            <div class="space-y-4">
+            
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-key mr-2"></i>Clave Pública del Firmante (PEM)
+                    </label>
+                    <textarea 
+                        id="publicKeyInput"
+                        placeholder="Pega la clave pública RSA del firmante..."
+                        rows="4"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 font-mono text-sm"
+                    ></textarea>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-file mr-2"></i>Documento Original
+                    </label>
+                    <input type="file" id="fileToVerify" class="hidden" />
+                    <div class="flex items-center space-x-4">
+                        <button onclick="document.getElementById('fileToVerify').click()" 
+                                class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors">
+                            <i class="fas fa-file-upload mr-2"></i>Seleccionar Archivo
+                        </button>
+                        <span id="selectedVerifyFile" class="text-gray-600 text-sm">Ningún archivo seleccionado</span>
+                    </div>
+                </div>
+             
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-signature mr-2"></i>Firma Recibida
+                    </label>
+                    <input type="text" 
+                           id="receivedSignature"
+                           placeholder="Pega la firma digital recibida..."
+                           class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 font-mono text-sm">
+                </div>
+                
+                <button onclick="verifyDocument()" 
+                        class="w-full bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-lg font-semibold transition-colors">
+                    <i class="fas fa-check-double mr-2"></i>Verificar Firma
+                </button>
+            </div>
+            
+            <div id="verifyResult" class="hidden mt-6">
+            
+            </div>
+        </div>
+    </main>
+
+    <script>
+       
+        document.getElementById('fileToSign').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            document.getElementById('selectedFile').textContent = file ? file.name : 'Ningún archivo seleccionado';
+        });
+
+        document.getElementById('fileToVerify').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            document.getElementById('selectedVerifyFile').textContent = file ? file.name : 'Ningún archivo seleccionado';
+        });
+
+        async function signDocument() {
+            const privateKey = document.getElementById('privateKeyInput').value.trim();
+            const fileInput = document.getElementById('fileToSign');
+            const file = fileInput.files[0];
+
+            if (!privateKey) {
+                alert('Por favor, ingresa tu clave privada');
+                return;
+            }
+
+            if (!file) {
+                alert('Por favor, selecciona un archivo para firmar');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('private_key', privateKey);
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/api/manual-sign', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('signatureOutput').value = result.signature;
+                    document.getElementById('signResult').classList.remove('hidden');
+                    
+                    document.getElementById('privateKeyInput').value = '';
+                    fileInput.value = '';
+                    document.getElementById('selectedFile').textContent = 'Ningún archivo seleccionado';
+                    
+                    document.getElementById('signResult').scrollIntoView({ behavior: 'smooth' });
+                } else {
+                    alert('ERROR EN LA FIRMA');
+                }
+            } catch (error) {
+                alert('ERROR EN LA FIRMA');
+            }
+        }
+
+        // ===== FUNCIÓN PARA VERIFICAR =====
+        async function verifyDocument() {
+            const publicKey = document.getElementById('publicKeyInput').value.trim();
+            const signature = document.getElementById('receivedSignature').value.trim();
+            const fileInput = document.getElementById('fileToVerify');
+            const file = fileInput.files[0];
+
+            if (!publicKey) {
+                alert('Por favor, ingresa la clave pública del firmante');
+                return;
+            }
+
+            if (!signature) {
+                alert('Por favor, ingresa la firma recibida');
+                return;
+            }
+
+            if (!file) {
+                alert('Por favor, selecciona el documento original');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('public_key', publicKey);
+            formData.append('signature', signature);
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/api/manual-verify', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                showVerificationResult(result);
+                
+            } catch (error) {
+                showVerificationResult({ success: false });
+            }
+        }
+
+        function showVerificationResult(result) {
+            const resultDiv = document.getElementById('verifyResult');
+            
+            if (result.success && result.valid) {
+                resultDiv.innerHTML = `
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <div class="flex items-center text-green-800">
+                            <i class="fas fa-check-circle text-2xl mr-3"></i>
+                            <div>
+                                <h4 class="font-bold text-lg"> VERIFICACIÓN EXITOSA</h4>
+                                <p class="text-sm">El documento es auténtico y no ha sido modificado</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                resultDiv.innerHTML = `
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                        <div class="flex items-center text-red-800">
+                            <i class="fas fa-times-circle text-2xl mr-3"></i>
+                            <div>
+                                <h4 class="font-bold text-lg"> ERROR EN VERIFICACIÓN</h4>
+                                <p class="text-sm">La firma no es válida o el documento ha sido modificado</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            document.getElementById('publicKeyInput').value = '';
+            document.getElementById('receivedSignature').value = '';
+            document.getElementById('fileToVerify').value = '';
+            document.getElementById('selectedVerifyFile').textContent = 'Ningún archivo seleccionado';
+            
+            resultDiv.classList.remove('hidden');
+            resultDiv.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function copyToClipboard(elementId) {
+            const element = document.getElementById(elementId);
+            element.select();
+            document.execCommand('copy');
+            alert('Copiado al portapapeles');
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('privateKeyInput').value = '';
+            document.getElementById('publicKeyInput').value = '';
+            document.getElementById('receivedSignature').value = '';
+        });
+    </script>
+</body>
+</html>
