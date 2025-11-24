@@ -1,11 +1,11 @@
+.env
+
 keys/
 *.pem
 *.key
 *.pub
 
 __pycache__/
-
-.env
 
 node_modules/
 venv/
