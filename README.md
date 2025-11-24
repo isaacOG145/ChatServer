@@ -65,5 +65,18 @@ ce193e5868f140ed9ced42745f24f8cf  crypto_utils.py
 
 chat version 1.4
 
+Se implementa un modulo para verificar las firmas digitales de los documentos, inicio de sesion con google y se hace uso de tailwind para el diseño 
 
+7a045461a45210f225f0c313aec029f4  app.py
+95ca88183433edbef97dc2c9088f3408  jwt_utils.py
+919407fa44d47db124890ffbeeaecd27  package.json
+0a7cb4321928779f461d6d47e16a6ee6  crypto_utils.py
+c54cd212184d49a1d08e012eb997bdb3  requirements.txt
+7732016d24dc5a764a0ac6555d7bf326  package-lock.json
+9ae5ea09951102dcb8b58a1c8b7111aa  ./templates/manual_signature.html
+349120d718664237a49ecbde294c6a25  ./templates/oauthLogin.html
+458f08a5b108f7d8cd29b2c1beef207f  ./templates/room.html
+7b5df4d44a64d62b85335888b8313307  ./static/css/output.css
+7ebb8b559f2c4b96e188524305cef746  ./static/css/input.css
+eac10fd312145b185bac4e5eae0775c0  ./static/js/toggle.js
 
